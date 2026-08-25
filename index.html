@@ -143,6 +143,20 @@ canvas{display:block;touch-action:none}
 .diffrow .btn.on{background:var(--brass);color:#231a08;border-color:var(--brass)}
 h3{font-family:var(--display);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
   margin:20px 0 10px;font-weight:500}
+/* field guide */
+.udx{border:1px solid var(--line);border-radius:11px;padding:10px;margin-bottom:8px;background:var(--panel)}
+.udx .hd{display:flex;align-items:center;gap:9px}
+.udx .hd canvas{width:26px;height:26px;flex:0 0 auto}
+.udx .nm{font-family:var(--display);font-size:15px;letter-spacing:.04em;flex:1}
+.udx .ct{font-size:10.5px;color:var(--brass);font-variant-numeric:tabular-nums;white-space:nowrap}
+.udx .bl{font-size:11.5px;color:var(--muted);margin:7px 0 8px;line-height:1.45}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.stat{background:var(--panel2);border-radius:7px;padding:5px 7px}
+.stat b{display:block;font-size:13px;font-variant-numeric:tabular-nums;color:var(--bone);line-height:1.25}
+.stat i{font-style:normal;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.abil{margin-top:9px;border-top:1px solid var(--line);padding-top:8px;font-size:11.5px;color:#c6c0d4;line-height:1.45}
+.abil b{color:var(--brass-lt);font-family:var(--display);letter-spacing:.04em}
+.abil em{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums}
 #toast{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;background:rgba(20,17,28,.95);
   border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:12px;z-index:20;opacity:0;
   transition:opacity .2s;pointer-events:none;white-space:nowrap}
@@ -224,21 +238,24 @@ const T={
  spear:{name:"Spear",cost:2,hp:92,dmg:14,rng:1,atk:1.0,step:.55,
    ab:{name:"Shove",kind:"unit",range:1,cd:6,desc:"Drive a neighbour back a hex"},
    blurb:"Cheap line-holder. Shoves whoever crowds it — into a rock, if you aim it."},
- archer:{name:"Archer",cost:3,hp:80,dmg:19,rng:3,atk:1.2,step:.60,
+ archer:{name:"Archer",cost:3,hp:70,dmg:15,rng:3,atk:1.2,step:.60,
    ab:{name:"Volley",kind:"self",cd:11,desc:"3 rapid shots"},
    blurb:"Long reach, thin armour. Keep a body in front."},
  rider:{name:"Rider",cost:3,hp:90,dmg:16,rng:1,atk:.95,step:.32,
    ab:{name:"Charge",kind:"self",cd:9,desc:"Sprint; next hit lands hard"},
    blurb:"Fastest thing on the board. Charges in, then hits like a wall."},
  warden:{name:"Warden",cost:4,hp:235,dmg:15,rng:1,atk:1.3,step:.78,
-   ab:{name:"Taunt",kind:"self",cd:12,desc:"Drag foes onto you"},
+   ab:{name:"Taunt",kind:"self",cd:12,desc:"Drag foes onto you, and reveal the hidden"},
    blurb:"Slow wall. Taunt makes the enemy fight where you choose."},
  seer:{name:"Seer",cost:4,hp:78,dmg:17,rng:3,atk:1.5,step:.65,splash:1,
-   ab:{name:"Rupture",kind:"tile",range:4,cd:12,desc:"45 dmg blast, 0.8s delay"},
+   ab:{name:"Rupture",kind:"tile",range:4,cd:12,desc:"45 damage blast after a short delay"},
    blurb:"Punishes clumps. Rupture is telegraphed — aim ahead of them."},
  snare:{name:"Snare",cost:3,hp:88,dmg:16,rng:2,atk:1.3,step:.62,
-   ab:{name:"Hook",kind:"enemy",range:4,cd:10,desc:"Drag a foe 2 tiles in"},
+   ab:{name:"Hook",kind:"enemy",range:4,cd:10,desc:"Drag a foe 2 hexes closer"},
    blurb:"Reaches out and takes something. Good against anything running away."},
+ assassin:{name:"Assassin",cost:3,hp:70,dmg:17,rng:1,atk:1.0,step:.45,
+   ab:{name:"Vanish",kind:"self",cd:12,desc:"Unseen; the next blow lands for +32"},
+   blurb:"Cannot be targeted while unseen. Walks past a line and opens someone's back."},
  mender:{name:"Mender",cost:3,hp:72,dmg:0,heal:17,rng:2,atk:1.4,step:.60,
    ab:{name:"Ward",kind:"ally",range:3,cd:10,desc:"60 shield on an ally"},
    blurb:"Turns a won fight into a free one."},
@@ -246,7 +263,7 @@ const T={
    ab:{name:"Rally",kind:"self",cd:14,desc:"Heal + free orders"},
    blurb:"Rally reaches 3 tiles, so it has to come forward. Lose it and you lose."}
 };
-const ROSTER=["spear","archer","rider","warden","snare","seer","mender"];
+const ROSTER=["spear","archer","rider","warden","snare","assassin","seer","mender"];
 
 /* TEMPO stretches the clock without touching hp or damage, so time-to-kill doubles
    in real seconds while the order cooldown barely moves — that is what buys the
@@ -289,7 +306,7 @@ function spawn(side,type,c,r){
   const u={id:G.nextId++,side,type,t,c,r,nc:null,nr:null,mt:0,
     hp:t.hp,max:t.hp,shield:0,atkCd:Math.random()*.4,abCd:0,orderCd:0,
     path:null,goal:null,target:null,pend:null,repath:0,
-    stun:0,armor:1,armorT:0,volley:0,pursue:false,auto:false,holding:false,holdOnArrive:false,anchor:null,goalR:0,stuck:0,bestGd:-1,stallT:0,nudge:0,post:null,noAggro:0,charge:0,charged:false,recent:0,regroup:0,flip:false,swing:null,taunt:0,tauntBy:null,castPend:null,commit:0,prev:null,hold:0,pathGoal:null,settle:0,think:Math.random()*.4};
+    stun:0,armor:1,armorT:0,volley:0,pursue:false,auto:false,holding:false,holdOnArrive:false,anchor:null,goalR:0,stuck:0,bestGd:-1,stallT:0,nudge:0,post:null,noAggro:0,charge:0,charged:false,recent:0,regroup:0,flip:false,swing:null,stealth:0,blind:0,taunt:0,tauntBy:null,castPend:null,commit:0,prev:null,hold:0,pathGoal:null,settle:0,think:Math.random()*.4};
   G.units.push(u); return u;
 }
 
@@ -339,19 +356,28 @@ function hexLine(c1,r1,c2,r2){
   }
   return out;
 }
-/* Sight is blocked by rocks and by ENEMY bodies — never by your own. So a front rank
-   screens your shooters from return fire without ever getting in their way. */
+/* Retired: sight blocking read as arbitrary in play — you could not tell why a shot
+   was refused. Kept because the geometry is correct and it may earn its place back
+   with animation, but nothing calls it. Shooters are held in check by MINRANGE below. */
 function los(side,c1,r1,c2,r2){
   for(const [c,r] of hexLine(c1,r1,c2,r2)){
     if(isRock(c,r)) return false;
     for(const o of G.units){
-      if(o.hp<=0||o.side===side) continue;
+      if(o.hp<=0||o.side===side||o.stealth>0) continue;     // you cannot be screened by what you cannot see
       if((o.c===c&&o.r===r)||(o.nc===c&&o.nr===r)) return false;
     }
   }
   return true;
 }
-const canSee=(u,tc,tr)=>u.t.rng<=1||los(u.side,u.c,u.r,tc,tr);
+const canSee=()=>true;                       // sight blocking is no longer in play
+/* A bow is useless with someone leaning on it. Ranged units simply cannot fire at
+   anything adjacent — a visible hole in the middle of their range ring — so closing
+   the distance shuts a shooter down instead of merely taxing it. */
+const MINRANGE=2;
+const minOf=u=>u.t.rng>1?MINRANGE:1;
+const canHit=(u,c,r)=>{ const d=dist(u.c,u.r,c,r); return d<=u.t.rng&&d>=minOf(u); };
+// An unseen unit cannot be targeted by the other side, and does not block their sight.
+const unseenTo=(o,side)=>o.stealth>0&&o.side!==side;
 const inB=(c,r)=>c>=0&&r>=0&&c<COLS&&r<ROWS;
 const isRock=(c,r)=>ROCKS.some(k=>k[0]===c&&k[1]===r);
 /* POSITION vs RESERVATION are two different things.
@@ -376,7 +402,7 @@ const destOf=u => u.nc===null||u.flip ? [u.c,u.r] : [u.nc,u.nr];
 function unitAt(c,r){
   let best=null,bd=1e9;
   for(const u of G.units){
-    if(u.hp<=0) continue;
+    if(u.hp<=0||unseenTo(u,YOU)) continue;      // you cannot point at what you cannot see
     if(!((u.c===c&&u.r===r)||(u.nc===c&&u.nr===r))) continue;
     const [ux,uy]=upos(u);
     const d=Math.hypot(ux-px(c,r),uy-py(r));
@@ -397,7 +423,7 @@ function attackSpot(u,ec,er,keep,vac){
   for(let c=0;c<COLS;c++)for(let r=0;r<ROWS;r++){
     if(isRock(c,r)||dist(c,r,ec,er)>u.t.rng) continue;
     if(occAt(c,r,u)) continue;
-    if(u.t.rng>1&&!los(u.side,c,r,ec,er)) continue;      // must be able to see from there
+    if(u.t.rng>1&&dist(c,r,ec,er)<MINRANGE) continue;    // too close to shoot from
     // continuity term: prefer a spot near the one we were already heading for, so a
     // target stepping sideways does not send the chaser around to the far side
     const score=dist(u.c,u.r,c,r)*10+dist(c,r,ec,er)
@@ -539,6 +565,7 @@ function cast(u,c,r,tid){
   if(a.kind==="self"){
     if(u.type==="archer"){ u.volley=3; float(u,"VOLLEY","#f6d894"); }
     if(u.type==="rider"){ u.charge=2*TEMPO; u.charged=true; float(u,"CHARGE","#f6d894"); }
+    if(u.type==="assassin"){ u.stealth=2.4*TEMPO; float(u,"VANISH","#cfb0ff"); }
     if(u.type==="king"){
       for(const o of G.units) if(o.side===u.side&&o.hp>0&&dist(o.c,o.r,u.c,u.r)<=3){
         if(o.hp<o.max) heal(o,25);
@@ -550,6 +577,8 @@ function cast(u,c,r,tid){
       u.armor=.45; u.armorT=2.4*TEMPO;
       let n=0;
       for(const o of G.units) if(o.side!==u.side&&o.hp>0&&dist(o.c,o.r,u.c,u.r)<=2){
+        // a Warden sweeping the ground finds what is hiding on it
+        if(o.stealth>0){ o.stealth=0; float(o,"FOUND","#ff8f7f"); }
         o.taunt=2.2*TEMPO; o.tauntBy=u.id; o.path=null; o.goal=null; n++; }
       float(u,n?"TAUNT ×"+n:"TAUNT","#ff8f7f");
     }
@@ -603,7 +632,8 @@ function hurt(u,amt,src){
   if(u.hp<=0) return;
   let d=amt*u.armor;
   if(u.shield>0){ const a=Math.min(u.shield,d); u.shield-=a; d-=a; }
-  if(d>0){ u.hp-=d; u.recent+=d; float(u,"-"+Math.round(d),u.side===YOU?"#ff8f7f":"#ffd0c8"); }
+  if(d>0){ u.hp-=d; u.recent+=d; float(u,"-"+Math.round(d),u.side===YOU?"#ff8f7f":"#ffd0c8");
+    if(u.stealth>0){ u.stealth=0; float(u,"SEEN","#cfb0ff"); } }
   if(u.hp<=0){ u.hp=0; fx({t:"death",c:u.c,r:u.r,life:.5,col:u.side===YOU?"#e0a33e":"#a06ff0"});
     if(u.t.king){ G.over = u.side===YOU?"lose":"win"; G.overWhy="king"; } }
 }
@@ -639,7 +669,9 @@ function update(dt){
     u.abCd=Math.max(0,u.abCd-dt);
     u.atkCd-=dt; u.stun=Math.max(0,u.stun-dt); u.commit=Math.max(0,u.commit-dt); u.settle=Math.max(0,u.settle-dt);
     if(u.armorT>0){ u.armorT-=dt; if(u.armorT<=0) u.armor=1; }
-    u.pursue=false; u.noAggro=Math.max(0,u.noAggro-dt); u.nudge=Math.max(0,u.nudge-dt);
+    u.pursue=false; u.noAggro=Math.max(0,u.noAggro-dt);
+    if(!u.target) u.blind=0;
+    if(u.stealth>0){ u.stealth-=dt; if(u.stealth<=0){ u.stealth=0; float(u,"SEEN","#cfb0ff"); } } u.nudge=Math.max(0,u.nudge-dt);
     u.recent=Math.max(0,u.recent-dt*16); u.regroup=Math.max(0,u.regroup-dt);
     if(u.charge>0){ u.charge-=dt; if(u.charge<=0){ u.charge=0; u.charged=false; } }
 
@@ -699,9 +731,11 @@ function update(dt){
       } else if(!u.target&&u.noAggro<=0){
         let pick=null,pd=99;
         for(const o of G.units){
-          if(o.side===u.side||o.hp<=0) continue;
+          if(o.side===u.side||o.hp<=0||unseenTo(o,u.side)) continue;
           const d=dist(o.c,o.r,u.c,u.r);
-          if(d>u.t.rng+1) continue;                            // just outside reach
+          // melee will step up to something just out of reach; a shooter waits
+          if(d > (u.t.rng>1 ? u.t.rng : u.t.rng+1)) continue;
+          if(d<minOf(u)) continue;                             // cannot shoot its own feet
           if(dist(o.c,o.r,u.anchor[0],u.anchor[1])>LEASH) continue;
           if(d<pd||(d===pd&&pick&&o.hp<pick.hp)){ pd=d; pick=o; }
         }
@@ -713,13 +747,18 @@ function update(dt){
     // retarget toward attack order
     if(!u.castPend&&u.target){
       const e=byId(u.target);
-      if(!e) { u.target=null; u.auto=false; u.path=null; if(!u.anchor) u.anchor=[u.c,u.r]; }
+      if(!e||unseenTo(e,u.side)) { u.target=null; u.auto=false; u.path=null; u.pathGoal=null;
+        if(!u.anchor) u.anchor=[u.c,u.r]; }
       else{
         const d=dist(u.c,u.r,e.c,e.r);
         // e.c/e.r is now the target's true single hex, flipped at the midpoint
         const ec=e.c, er=e.r;
         const reach=dist(u.c,u.r,ec,er);
-        if(reach<=u.t.rng&&canSee(u,ec,er)){ u.path=null; u.pathGoal=null; u.settle=.15; }
+        const inRange=reach<=u.t.rng&&reach>=minOf(u);
+        // Pinned: something is inside a shooter's minimum range. It holds its ground —
+        // backing off automatically would be free kiting, and that is yours to order.
+        const pinned=u.t.rng>1&&reach<minOf(u);
+        if(inRange||pinned){ u.path=null; u.pathGoal=null; u.settle=.15; }
         else if(u.settle>0){ u.path=null; }
         else{
           u.pursue=true;              // running down a target you have locked
@@ -731,7 +770,7 @@ function update(dt){
               let bk=-1, bs=1e9;
               for(let c=0;c<COLS;c++)for(let r=0;r<ROWS;r++){
                 if(isRock(c,r)||dist(c,r,ec,er)>u.t.rng) continue;
-                if(u.t.rng>1&&!los(u.side,c,r,ec,er)) continue;
+                if(u.t.rng>1&&dist(c,r,ec,er)<MINRANGE) continue;
                 const k=c*ROWS+r, dd=fld.d[k];
                 if(dd<0) continue;
                 // Steps dominate: the other terms are deliberately small enough that they
@@ -834,12 +873,15 @@ function update(dt){
         if(u.swing.t<=0){
           const tgt=byId(u.swing.tid);
           const iv=u.swing.iv;
-          if(tgt&&dist(u.c,u.r,tgt.c,tgt.r)<=u.t.rng+1){
+          if(tgt&&!unseenTo(tgt,u.side)&&dist(u.c,u.r,tgt.c,tgt.r)<=u.t.rng+1){
             if(u.swing.heal){ heal(tgt,u.t.heal); shot(u,tgt,0); }
             else{
               let dmg=u.t.dmg, stun=0;
-              // a bowman with someone in his face is not getting a clean shot
-              if(u.t.rng>1&&dist(u.c,u.r,tgt.c,tgt.r)<=1) dmg*=.5;
+              if(u.stealth>0){                  // stepping out of the dark
+                dmg+=32; u.stealth=0;
+                float(u,"AMBUSH","#cfb0ff");
+                fx({t:"ring",c:u.c,r:u.r,life:.45,col:"#cfb0ff"});
+              }
               if(u.charged){                    // the charge resolves on contact
                 dmg+=20; stun=1*TEMPO;
                 u.charged=false; u.charge=0;
@@ -861,16 +903,16 @@ function update(dt){
     if(!u.swing&&u.atkCd<=0&&u.stun<=0&&u.nc===null){
       if(u.t.heal){
         let best=null;
-        for(const o of G.units) if(o.side===u.side&&o.hp>0&&o.hp<o.max&&dist(o.c,o.r,u.c,u.r)<=u.t.rng&&canSee(u,o.c,o.r))
+        for(const o of G.units) if(o.side===u.side&&o.hp>0&&o.hp<o.max&&dist(o.c,o.r,u.c,u.r)<=u.t.rng)
           if(!best||o.hp/o.max<best.hp/best.max) best=o;
         if(best){ const iv=u.t.atk; u.swing={t:windupOf(iv),iv,tid:best.id,heal:true}; }
       } else {
         let tgt=byId(u.target);
-        if(u.taunt>0&&tgt&&dist(u.c,u.r,tgt.c,tgt.r)<=u.t.rng&&canSee(u,tgt.c,tgt.r)){ /* locked on the taunter */ }
-        else if(!tgt||dist(u.c,u.r,tgt.c,tgt.r)>u.t.rng||!canSee(u,tgt.c,tgt.r)){
+        if(u.taunt>0&&tgt&&canHit(u,tgt.c,tgt.r)){ /* locked on the taunter */ }
+        else if(!tgt||unseenTo(tgt,u.side)||!canHit(u,tgt.c,tgt.r)){
           tgt=null;
-          for(const o of G.units){ if(o.side===u.side||o.hp<=0) continue;
-            if(dist(o.c,o.r,u.c,u.r)>u.t.rng||!canSee(u,o.c,o.r)) continue;
+          for(const o of G.units){ if(o.side===u.side||o.hp<=0||unseenTo(o,u.side)) continue;
+            if(!canHit(u,o.c,o.r)) continue;
             if(!tgt) {tgt=o;continue;}
             if(tgt.t.king&&!o.t.king) {tgt=o;continue;}
             if(!o.t.king&&o.hp<tgt.hp) tgt=o; }
@@ -921,7 +963,7 @@ function ai(dt){
   G.aiTick-=dt;
   if(G.aiTick<=0){ // pick one shared kill target for the whole army
     G.aiTick=[1.4,.9,.6][D];
-    const live=G.units.filter(o=>o.side===YOU&&o.hp>0);
+    const live=G.units.filter(o=>o.side===YOU&&o.hp>0&&!o.stealth);
     const pool=live.filter(o=>!o.t.king).length?live.filter(o=>!o.t.king):live;
     let best=null;
     for(const e of pool){
@@ -937,7 +979,7 @@ function ai(dt){
     u.think-=dt; if(u.think>0) continue;
     u.think = [0.55,0.4,0.28][D];
 
-    const all=G.units.filter(o=>o.side===YOU&&o.hp>0);
+    const all=G.units.filter(o=>o.side===YOU&&o.hp>0&&!o.stealth);
     const foes=all.filter(o=>!o.t.king).length?all.filter(o=>!o.t.king):all;
     let near=null,nd=99;
     for(const o of foes){ const d=dist(u.c,u.r,o.c,o.r); if(d<nd){nd=d;near=o;} }
@@ -955,7 +997,7 @@ function ai(dt){
       // how many enemies could be hitting it right now, and how hard is it bleeding
       let onIt=0;
       for(const o of G.units)
-        if(o.side===YOU&&o.hp>0&&!o.t.heal&&dist(o.c,o.r,u.c,u.r)<=Math.max(1,o.t.rng)) onIt++;
+        if(o.side===YOU&&o.hp>0&&!o.t.heal&&!o.stealth&&dist(o.c,o.r,u.c,u.r)<=Math.max(1,o.t.rng)) onIt++;
       const bleeding = u.recent > [80,60,45][D];
       const lowHp    = u.hp < u.max*[.55,.45,.38][D];
       if(army.length&&(onIt>=3||bleeding||lowHp)) u.regroup=Math.max(u.regroup,2.5);
@@ -1004,7 +1046,7 @@ function ai(dt){
     if(u.abCd<=0 && Math.random()<[.5,.8,1][D]){
       if(u.type==="rider"&&near&&nd>=2&&nd<=6){ cast(u); }
       if(u.type==="warden"){ // taunt is worth most when several things are already in reach
-        const n=G.units.filter(o=>o.side===YOU&&o.hp>0&&dist(o.c,o.r,u.c,u.r)<=2).length;
+        const n=G.units.filter(o=>o.side===YOU&&o.hp>0&&!o.stealth&&dist(o.c,o.r,u.c,u.r)<=2).length;
         if(n>=(D===0?2:1)) cast(u);
       }
       if(u.type==="spear"&&near&&nd<=1){
@@ -1078,7 +1120,7 @@ function ai(dt){
 
 function buildFoeArmy(D){
   const bud=[9,11,12][D];
-  const pool=["spear","archer","rider","warden","snare","seer","mender"];
+  const pool=["spear","archer","rider","warden","snare","assassin","seer","mender"];
   const picks=[]; let left=bud, guard=0;
   // guarantee a frontline
   picks.push("spear"); left-=2; picks.push("warden"); left-=4;
@@ -1182,7 +1224,7 @@ function draw(){
     if(s&&s.t.rng>0){
       cx.strokeStyle="rgba(246,216,148,.20)"; cx.lineWidth=1;
       for(let c=0;c<COLS;c++)for(let r=0;r<ROWS;r++)
-        if(dist(c,r,s.c,s.r)<=s.t.rng&&!(c===s.c&&r===s.r)&&canSee(s,c,r)){
+        if(canHit(s,c,r)&&!(c===s.c&&r===s.r)){
           hexPath(px(c,r),py(r),HR()-2.5); cx.stroke(); }
     }
     cx.fillStyle="rgba(246,216,148,.5)";
@@ -1302,8 +1344,11 @@ function draw(){
 }
 
 function drawUnit(u){
-  const [x,y]=upos(u), R=TS*.36;
   const mine=u.side===YOU;
+  // Unseen enemies are not rendered at all — you get no line on where they went.
+  // Your own stay visible but faded, or you could not command them.
+  if(u.stealth>0&&!mine) return;
+  const [x,y]=upos(u), R=TS*.36;
   const main=mine?"#e0a33e":"#a06ff0", lite=mine?"#f6d894":"#cfb0ff";
 
   // the commander wears a standing ring so it reads instantly on a small screen
@@ -1314,6 +1359,10 @@ function drawUnit(u){
     cx.fillStyle=main; cx.fill(); cx.globalAlpha=1;
   }
 
+  if(u.stealth>0){                    // your own, hidden from them but not from you
+    cx.globalAlpha=.5;
+    cx.setLineDash([3,4]);
+  }
   // selection halo
   if(G.sel.includes(u)){
     cx.strokeStyle="#f6d894"; cx.lineWidth=2;
@@ -1367,7 +1416,9 @@ function drawUnit(u){
     cx.beginPath(); cx.arc(x,y,R+4,0,7); cx.stroke(); cx.setLineDash([]); }
 
   glyph(u.type,x,y,TS*.20,lite);
-  hpBar(u,x,y,R,main);
+  cx.setLineDash([]);
+  if(u.stealth<=0) hpBar(u,x,y,R,main);
+  cx.globalAlpha=1;
 
   // ability dial — readable without selecting, on both sides. Full information is the point.
   if(u.t.ab){
@@ -1415,6 +1466,10 @@ function glyph(type,x,y,s,col){
     case "snare": cx.arc(0,-s*.15,s*.62,Math.PI*.15,Math.PI*.95); cx.stroke();
       cx.beginPath(); cx.moveTo(s*.6,-s*.24); cx.lineTo(s*.6,-s*.95); cx.stroke();
       cx.beginPath(); cx.arc(s*.6,-s*.95,s*.2,0,7); cx.stroke(); break;
+    case "assassin": cx.moveTo(0,s*.95); cx.lineTo(0,-s*.35); cx.stroke();
+      cx.beginPath(); cx.moveTo(-s*.5,-s*.3); cx.lineTo(s*.5,-s*.3); cx.stroke();
+      cx.beginPath(); cx.moveTo(-s*.28,-s*.42); cx.lineTo(0,-s*1.0); cx.lineTo(s*.28,-s*.42);
+      cx.closePath(); cx.fill(); break;
     case "mender": cx.moveTo(0,-s*.9); cx.lineTo(0,s*.9); cx.moveTo(-s*.65,-s*.15); cx.lineTo(s*.65,-s*.15); cx.stroke(); break;
   }
   cx.restore();
@@ -1716,6 +1771,7 @@ function menu(){
     </div>
     <button class="btn primary" style="width:100%;margin-top:16px" onclick="begin()">Draft army</button>
     <button class="btn ghost" style="width:100%;margin-top:8px" onclick="rules()">How it plays</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" onclick="codex('menu')">Field guide</button>
     <button class="btn ghost" style="width:100%;margin-top:8px" onclick="toggleSkin('menu')">Board: ${skinLabel()}</button>`);
 }
 function setDiff(d){ diff=d; menu(); }
@@ -1738,6 +1794,7 @@ function pause(){
       <button class="btn" style="width:100%;margin-top:8px" onclick="restart()">Clear and redraft</button>
       <button class="btn ghost" style="width:100%;margin-top:8px" onclick="toggleSkin('pause')">Board: ${skinLabel()}</button>
       <button class="btn ghost" style="width:100%;margin-top:8px" onclick="rules('pause')">How it plays</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" onclick="codex('pause')">Field guide</button>
       <button class="btn ghost" style="width:100%;margin-top:8px" onclick="menu()">Main menu</button>`);
     return;
   }
@@ -1753,6 +1810,7 @@ function pause(){
     <button class="btn" style="width:100%;margin-top:8px" onclick="restart()">Restart — new draft</button>
     <button class="btn ghost" style="width:100%;margin-top:8px" onclick="toggleSkin('pause')">Board: ${skinLabel()}</button>
     <button class="btn ghost" style="width:100%;margin-top:8px" onclick="rules('pause')">How it plays</button>
+    <button class="btn ghost" style="width:100%;margin-top:8px" onclick="codex('pause')">Field guide</button>
     <button class="btn danger" style="width:100%;margin-top:14px" onclick="confirmSurrender()">Surrender</button>`);
 }
 function resume(){ if(G) G.paused=false; hideSheet(); }
@@ -1768,6 +1826,47 @@ function confirmSurrender(){
 function doSurrender(){
   for(const u of G.units) if(u.side===YOU) u.hp=0;
   G.paused=false; G.over="lose"; G.overWhy="quit"; finish();
+}
+
+/* Every number here is read straight off the unit table and the live tempo, so the
+   guide cannot drift out of step with the game. */
+function codex(from){
+  const n1=x=>(Math.round(x*10)/10).toFixed(1);
+  const cards=[...ROSTER,"king"].map(k=>{
+    const t=T[k], a=t.ab;
+    const off = t.heal ? t.heal+"<i>heal</i>" : t.dmg+(t.splash?"<i>splash</i>":"<i>damage</i>");
+    const dps = t.heal ? n1(t.heal/t.atk)+"<i>heal / s</i>" : n1(t.dmg/t.atk)+"<i>damage / s</i>";
+    const reach = t.rng===1?"melee":MINRANGE+"–"+t.rng+" hexes";
+    const kindTxt = {self:"on itself",tile:"at a hex",ally:"on an ally",enemy:"on an enemy",unit:"on a neighbour"}[a.kind];
+    return `<div class="udx">
+      <div class="hd">
+        <canvas width="52" height="52" data-t="${k}"></canvas>
+        <span class="nm">${t.name}</span>
+        <span class="ct">${t.king?"commander":t.cost+" pts"}</span>
+      </div>
+      <div class="bl">${t.blurb}</div>
+      <div class="stats">
+        <div class="stat"><b>${t.hp}</b><i>health</i></div>
+        <div class="stat"><b>${off}</b></div>
+        <div class="stat"><b>${reach}</b><i>reach</i></div>
+        <div class="stat"><b>${n1(t.atk)}s</b><i>per swing</i></div>
+        <div class="stat"><b>${dps}</b></div>
+        <div class="stat"><b>${n1(t.step)}s</b><i>per hex</i></div>
+      </div>
+      <div class="abil"><b>${a.name}</b> <em>· ${n1(a.cd)}s cooldown · cast ${kindTxt}${a.range?" within "+a.range:""}</em><br>${a.desc}</div>
+    </div>`;
+  }).join("");
+  showSheet(`
+    <div class="title" style="font-size:22px">Field guide</div>
+    <div class="sub">every unit, every number</div>
+    <div class="rule"></div>
+    <p class="p" style="font-size:11.5px">Timings are real seconds. A swing commits for its first <b>${n1(windupOf(T.spear.atk))}s</b> — move inside that window and the blow is thrown away.</p>
+    ${cards}
+    <button class="btn primary" style="width:100%;margin-top:6px" onclick="${from==='pause'?'pause()':'menu()'}">Back</button>`);
+  for(const el of $("sheet").querySelectorAll("canvas[data-t]")){
+    const g=el.getContext("2d"); g.scale(2,2);
+    const oc=cx; cx=g; glyph(el.dataset.t,13,13,8.5,"#f6d894"); cx=oc;
+  }
 }
 
 function rules(back){
@@ -1793,8 +1892,8 @@ function rules(back){
     <h3>Where you stand</h3>
     <div class="kv"><i>Wind-up</i><span>A blow takes a moment to land — you can see the arc close in on its target. <b>Move during the wind-up and the swing is thrown away.</b> Standing still never costs you rate of fire; only interrupting yourself does.</span></div>
     <div class="kv"><i>Standstill</i><span>Units only attack while stopped. Moving costs damage, so a retreat is a real decision — not a free one.</span></div>
-    <div class="kv"><i>Point blank</i><span>Archers, Seers and Snares do <b>half damage</b> to anything adjacent. Screen them.</span></div>
-    <div class="kv"><i>Line of sight</i><span>Shooters need a clear line. <b>Enemy bodies and rocks block it; your own never do</b> — so a front rank shields your archers from return fire without ever getting in their way. A selected unit only lights up the hexes it can actually hit.</span></div>
+    <div class="kv"><i>Unseen</i><span>An Assassin that <b>Vanishes</b> is gone: untargetable, invisible to the other side, and dropped by anything chasing it. Your own show faded so you can still command them. The next blow it lands deals <b>+32</b> and reveals it — so does taking damage, and so does a <b>Warden's Taunt</b>, which sweeps the ground and drags out whatever is hiding on it.</span></div>
+    <div class="kv"><i>Minimum range</i><span>Archers, Seers, Snares and Menders <b>cannot act on anything adjacent</b> — their range ring has a hole in the middle, and you can see it when you select them. Get a body onto a shooter and it stops shooting entirely; it will hold its ground rather than back off on its own.</span></div>
     <div class="kv"><i>Hexes</i><span>All six neighbours are one step away and a range is a true circle, so reach is honest in every direction.</span></div>
 
     <h3>Reading the board</h3>
